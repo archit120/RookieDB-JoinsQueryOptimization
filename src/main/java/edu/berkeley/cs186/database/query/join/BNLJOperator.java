@@ -7,6 +7,7 @@ import edu.berkeley.cs186.database.common.iterator.BacktrackingIterator;
 import edu.berkeley.cs186.database.query.JoinOperator;
 import edu.berkeley.cs186.database.query.QueryOperator;
 import edu.berkeley.cs186.database.table.Record;
+import edu.berkeley.cs186.database.table.Table;
 
 /**
  * Performs an equijoin between two relations on leftColumnName and
@@ -60,6 +61,11 @@ public class BNLJOperator extends JoinOperator {
         private Record leftRecord;
         // The next record to return
         private Record nextRecord;
+        
+        private int maxRecords;
+        private int currentPos;
+        private int maxPos;
+        private List<Record> blockRecords;
 
         private BNLJIterator() {
             super();
@@ -68,11 +74,51 @@ public class BNLJOperator extends JoinOperator {
 
             this.rightSourceIterator = getRightSource().backtrackingIterator();
             this.rightSourceIterator.markNext();
-            this.fetchNextRightPage();
+            //this.fetchNextRightPage();
 
             this.nextRecord = null;
+
+            this.maxRecords = getNumberOfCombinedRecords();    
+            this.maxPos = 0;
+            this.currentPos = 0;
+            this.blockRecords = new ArrayList<>(maxRecords);
+            while (blockRecords.size() < maxRecords)
+                blockRecords.add(null);
         }
 
+        private Boolean hasNextLeftBlock() {
+            return this.leftSourceIterator.hasNext();
+        }
+
+        private Boolean hasNextRightPage() {
+            return this.rightSourceIterator.hasNext();
+        }
+
+        private void MergeOnePage() {
+            currentPos = 0;
+            if(hasNextRightPage()) {
+                leftBlockIterator.reset();
+                fetchNextRightPage();
+                while(leftBlockIterator.hasNext() && currentPos < maxRecords) {
+                    leftRecord = leftBlockIterator.next();
+                    while(rightPageIterator.hasNext() && currentPos < maxRecords) {
+                        Record rightRecord = rightPageIterator.next();
+                        if (compare(leftRecord, rightRecord) == 0) {
+                            blockRecords.set(currentPos++, leftRecord.concat(rightRecord));
+                        }
+                    }
+                }
+            }
+            else if(hasNextLeftBlock()) {
+                rightSourceIterator.reset();
+                fetchNextLeftBlock();
+                fetchNextRightPage();
+                MergeOnePage();
+            }
+            
+            maxPos = currentPos;
+            currentPos = 0;
+        }
         /**
          * Fetch the next block of records from the left source.
          * leftBlockIterator should be set to a backtracking iterator over up to
@@ -85,7 +131,11 @@ public class BNLJOperator extends JoinOperator {
          * You may find QueryOperator#getBlockIterator useful here.
          */
         private void fetchNextLeftBlock() {
-            // TODO(proj3_part1): implement
+            if(hasNextLeftBlock())
+            {
+                this.leftBlockIterator = QueryOperator.getBlockIterator(this.leftSourceIterator, getLeftSource().getSchema(), numBuffers-2);
+                this.leftBlockIterator.markNext();
+            }
         }
 
         /**
@@ -99,7 +149,11 @@ public class BNLJOperator extends JoinOperator {
          * You may find QueryOperator#getBlockIterator useful here.
          */
         private void fetchNextRightPage() {
-            // TODO(proj3_part1): implement
+            if(hasNextRightPage())
+            {
+                this.rightPageIterator = QueryOperator.getBlockIterator(this.rightSourceIterator, getRightSource().getSchema(), 1);
+                this.rightPageIterator.markNext();
+            }
         }
 
         /**
@@ -111,8 +165,14 @@ public class BNLJOperator extends JoinOperator {
          * of JoinOperator).
          */
         private Record fetchNextRecord() {
-            // TODO(proj3_part1): implement
-            return null;
+            while(maxPos == currentPos && (hasNextRightPage() || hasNextLeftBlock())) 
+                MergeOnePage();
+            
+            if (maxPos == currentPos) {
+                return null;
+            }
+
+            return blockRecords.get(currentPos++);
         }
 
         /**

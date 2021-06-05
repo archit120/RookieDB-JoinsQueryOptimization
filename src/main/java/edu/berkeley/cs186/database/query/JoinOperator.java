@@ -12,6 +12,8 @@ import edu.berkeley.cs186.database.memory.Page;
 import edu.berkeley.cs186.database.table.Record;
 import edu.berkeley.cs186.database.table.Schema;
 import edu.berkeley.cs186.database.table.stats.TableStats;
+import edu.berkeley.cs186.database.table.PageDirectory;
+import edu.berkeley.cs186.database.table.Table;
 
 public abstract class JoinOperator extends QueryOperator {
     public enum JoinType {
@@ -189,4 +191,11 @@ public abstract class JoinOperator extends QueryOperator {
         DataBox rightRecordValue = rightRecord.getValue(this.rightColumnIndex);
         return leftRecordValue.compareTo(rightRecordValue);
     }
+
+    public int getNumberOfCombinedRecords() {
+        int recordsPerPage = Table.computeNumRecordsPerPage(PageDirectory.EFFECTIVE_PAGE_SIZE, computeSchema());
+        return recordsPerPage;
+    }
+
+
 }
