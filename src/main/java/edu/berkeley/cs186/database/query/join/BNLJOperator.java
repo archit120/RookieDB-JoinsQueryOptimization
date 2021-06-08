@@ -121,7 +121,6 @@ public class BNLJOperator extends JoinOperator {
             // boolean rightIncomplete = hasNextRightPage() || lastIncomplete;
             if (lastIncomplete || leftBlockIterator.hasNext() || hasNextRightPage()) {
                 
-                boolean mustComplete = false;
                 if (lastIncomplete) {
                     currentPos = InnerRightLoop(currentPos);
                     lastIncomplete = false;
@@ -130,14 +129,11 @@ public class BNLJOperator extends JoinOperator {
 
                 }
                 else {
-                    if(!rightPageIterator.hasNext())
-                        ri-=400;
                     rightPageIterator.reset();
 
                     if (!leftBlockIterator.hasNext()) {
                         fetchNextRightPage();
                         leftBlockIterator.reset();
-                        li -=400;
                     }
 
                     while (leftBlockIterator.hasNext() && currentPos < maxRecords) {
@@ -147,11 +143,7 @@ public class BNLJOperator extends JoinOperator {
                         if (rightPageIterator.hasNext())
                             lastIncomplete = true;
                         else
-                        {
                             rightPageIterator.reset();
-                            ri -= 400;
-                        }
-
                     }
                 }
 
